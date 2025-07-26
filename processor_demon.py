@@ -8,11 +8,13 @@ import time
 MTDDAQ_PATH = "/home/cmsdaq/DAQ/mtd_daq/"
 
 plotters = {
+    "dm_check": "tofhir_dm_position_plot.py",
     "tp": "tofhir_tp_plot.py",
     "lyso": "tofhir_lyso_plot.py",
     "disc": "tofhir_disc_scan_plot.py",
     "iv": "tofhir_iv_scan_plot.py",
     "tec": "temps_plot.py",
+    "calibrate": "tofhir_qdc_plot.py",
 }
 
 
@@ -37,25 +39,31 @@ async def process_run(run_id: Run):
         )
         start = time.time()
 
-        if run.run_type == "lyso" or run.run_type == "tp":
-            proc = subprocess.Popen(
-                f"which python; cd {MTDDAQ_PATH}; . start.sh; tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                executable="/bin/bash",
-                env=env,
+        if run.run_type == "lyso":
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}; tofhir_peaks_correlate.py {run.run_number}"
+        elif run.run_type == "tp":
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}"
+        elif run.run_type == "calibrate":
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number}"
+        elif run.run_type == "dm_check":
+            reco_command = "; ".join(
+                [
+                    f"tofhir_reco.py {_run_number}"
+                    for _run_number in range(run.run_number, run.run_number + 12)
+                ]
             )
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {plotters[run.run_type]} {run.run_number} {run.run_number + 11}"
         else:
-            proc = subprocess.Popen(
-                f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                executable="/bin/bash",
-                env=env,
-            )
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number}"
 
+        proc = subprocess.Popen(
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            executable="/bin/bash",
+            env=env,
+        )
         stdout, stderr = proc.communicate()
         elapsed = round((time.time() - start) / 60, 2)
 
@@ -63,7 +71,7 @@ async def process_run(run_id: Run):
         run.stdout = (
             f"Done processing in {elapsed} minutes\nOutput:\n" + stdout.decode()
         )
-        run.stderr = env["PATH"] + "\n" + stderr.decode()
+        run.stderr = env["PATH"] + "\n" + stderr.decode() + '\nReturn code: ' + str(proc.returncode)
 
         link = "#"
         if proc.returncode == 0:
@@ -73,8 +81,12 @@ async def process_run(run_id: Run):
                 link = f"http://pc-mtd-tray/tray_qaqc/disc_scan/run_{run.run_number}"
             elif run.run_type == "iv":
                 link = f"http://pc-mtd-tray/tray_qaqc/iv_scan/run_{run.run_number}"
+            elif run.run_type == "calibrate":
+                link = f"http://pc-mtd-tray/tray_qaqc/tofhir_calibs/run_{run.run_number}"
             elif run.run_type == "tec":
                 link = f"http://pc-mtd-tray/tray_qaqc/temps/run_{run.run_number}"
+            elif run.run_type == "dm_check":
+                link = f"http://pc-mtd-tray/tray_qaqc/tofhir/plots_dmPosition_runs_{run.run_number}_{run.run_number + 11}"
         print(link)
 
         run.plot_link = link
@@ -100,7 +112,6 @@ async def poll_db():
                 await process_run(run.id)
             else:
                 print(f"[{time.strftime('%H:%M:%S')}] No queued runs.")
-
         await asyncio.sleep(2)  # polling interval
 
 

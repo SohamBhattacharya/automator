@@ -118,6 +118,8 @@
             <thead>
                 <tr>
                     <th>Select Tray</th>
+                    <th>dm_check</th>
+                    <th>calibrate</th>
                     <th>lyso</th>
                     <th>tp</th>
                     <th>disc</th>
@@ -130,6 +132,8 @@
                     <td>
                         <select id="traySelect"></select>
                     </td>
+                    <td id="dm_check_run"><a href="#">-</a></td>
+                    <td id="calibrate_run"><a href="#">-</a></td>
                     <td id="lyso_run"><a href="#">-</a></td>
                     <td id="tp_run"><a href="#">-</a></td>
                     <td id="disc_run"><a href="#">-</a></td>
@@ -142,6 +146,7 @@
 
     <h1>Task Status</h1>
     <div id="filterSection" style="margin-bottom:1em; display: flex; gap: 1em; align-items: center;">
+        <p>Filters:</p>
         <label>
             Tray:
             <select id="filterTray">
@@ -158,6 +163,8 @@
             Type:
             <select id="filterType">
                 <option value="">All</option>
+                <option value="dm_check">dm_check</option>
+                <option value="calibrate">calibrate</option>
                 <option value="lyso">lyso</option>
                 <option value="tp">tp</option>
                 <option value="disc">disc</option>
@@ -167,13 +174,19 @@
         </label>
         <label>
             Date:
-            <input type="datetime-local" id="filterDateFrom"> -
-            <input type="datetime-local" id="filterDateTo">
+            <!-- <input type="datetime-local" id="filterDateFrom"> -
+            <input type="datetime-local" id="filterDateTo"> -->
+            <input type="date" id="filterDateFrom"> -
+            <input type="time" id="filterTimeFrom" value="00:00"> -
+            <input type="date" id="filterDateTo">
+            <input type="time" id="filterTimeTo" value="23:59"> -
         </label>
         <button id="applyFiltersBtn">Apply</button>
         <button id="clearFiltersBtn" type="button">Clear</button>
     </div>
 
+    <button id="setQueuedBtn">Back to Queued</button>
+    <button id="deleteSelectedBtn">Delete Selected</button>
 
     <table id="statusTable">
         <thead>
@@ -192,13 +205,11 @@
         </thead>
         <tbody></tbody>
     </table>
-    <button id="setQueuedBtn">Back to Queued</button>
-    <button id="deleteSelectedBtn">Delete Selected</button>
 
     <div class="pagination" id="pagination"></div>
     <script>
         let currentPage = 1;
-        const perPage = 25;
+        const perPage = 30;
         let sortBy = "date";
         let sortDir = "desc";
 
@@ -207,13 +218,15 @@
         let filterRU = "";
         let filterType = "";
         let filterDateFrom = "";
+        let filterTimeFrom = "";
         let filterDateTo = "";
+        let filterTimeTo = "";
 
         // Fetch all trays for the select dropdown
         async function fetchTrays() {
             const res = await fetch('/status?page=1&per_page=100');
             const data = await res.json();
-            const trays = [...new Set(data.jobs.map(j => j.Tray))].sort();
+            const trays = [...new Set(data.jobs.map(j => j.Tray))];//.sort();
             const select = document.getElementById("traySelect");
             select.innerHTML = "";
             trays.forEach(tray => {
@@ -255,6 +268,8 @@
                 }
             }
 
+            setLink("dm_check", "dm_check_run");
+            setLink("calibrate", "calibrate_run");
             setLink("lyso", "lyso_run");
             setLink("tp", "tp_run");
             setLink("disc", "disc_run");
@@ -341,6 +356,11 @@
                 opt.textContent = ru;
                 ruSelect.appendChild(opt);
             });
+
+            var from_date= new Date();
+            from_date.setDate(from_date.getDate() - 5);
+            document.getElementById("filterDateFrom").value = from_date.toISOString().split("T")[0];
+            document.getElementById("filterDateTo").value = new Date().toISOString().split("T")[0];
         }
         document.getElementById("filterTray").onchange = function () {
             if (applyFilter) {
@@ -362,9 +382,19 @@
                 filterDateFrom = this.value;
             }
         };
+        document.getElementById("filterTimeFrom").onchange = function () {
+            if (applyFilter) {
+                filterTimeFrom = this.value;
+            }
+        };
         document.getElementById("filterDateTo").onchange = function () {
             if (applyFilter) {
                 filterDateTo = this.value;
+            }
+        };
+        document.getElementById("filterTimeTo").onchange = function () {
+            if (applyFilter) {
+                filterTimeTo = this.value;
             }
         };
         document.getElementById("applyFiltersBtn").onclick = function () {
@@ -372,7 +402,9 @@
             filterRU = document.getElementById("filterRU").value;
             filterType = document.getElementById("filterType").value;
             filterDateFrom = document.getElementById("filterDateFrom").value;
+            filterTimeFrom = document.getElementById("filterTimeFrom").value;
             filterDateTo = document.getElementById("filterDateTo").value;
+            filterTimeTo = document.getElementById("filterTimeTo").value;
             currentPage = 1;
             updateTable(1);
         };
@@ -381,12 +413,17 @@
             document.getElementById("filterRU").value = "";
             document.getElementById("filterType").value = "";
             document.getElementById("filterDateFrom").value = "";
+            document.getElementById("filterTimeFrom").value = "";
             document.getElementById("filterDateTo").value = "";
+            document.getElementById("filterTimeTo").value = "";
             filterTray = "";
             filterRU = "";
             filterType = "";
             filterDateFrom = "";
+            filterTimeFrom = "";
             filterDateTo = "";
+            filterTimeTo = "";
+
             currentPage = 1;
             updateTable(1);
         };
@@ -438,15 +475,33 @@
             const ru = filterRU;
             const type = filterType;
             const dateFrom = filterDateFrom;
+            const timeFrom = filterTimeFrom;
             const dateTo = filterDateTo;
+            const timeTo = filterTimeTo;
+
+            let dateTimeFrom = "";
+            let dateTimeTo = "";
+            // Combine date and time inputs
+            if (dateFrom && timeFrom) {
+                dateTimeFrom = `${dateFrom}T${timeFrom}`;
+            } else if (dateFrom) {
+                dateTimeFrom = `${dateFrom}T00:00`;
+            }
+
+            if (dateTo && timeTo) {
+                dateTimeTo = `${dateTo}T${timeTo}`;
+            } else if (dateTo) {
+                dateTimeTo = `${dateTo}T23:59`;
+            }
+
 
             // Build query string
             let url = `/status?page=${page}&per_page=${perPage}&sort_by=${sortBy}&sort_dir=${sortDir}`;
             if (tray) url += `&tray=${encodeURIComponent(tray)}`;
             if (ru) url += `&ru=${encodeURIComponent(ru)}`;
             if (type) url += `&type=${encodeURIComponent(type)}`;
-            if (dateFrom) url += `&date_from=${encodeURIComponent(dateFrom)}`;
-            if (dateTo) url += `&date_to=${encodeURIComponent(dateTo)}`;
+            if (dateFrom) url += `&date_from=${encodeURIComponent(dateTimeFrom)}`;
+            if (dateTo) url += `&date_to=${encodeURIComponent(dateTimeTo)}`;
 
             // const res = await fetch(`/status?page=${page}&per_page=${perPage}&sort_by=${sortBy}&sort_dir=${sortDir}`);
             const res = await fetch(url);
@@ -463,6 +518,10 @@
                 const tr = document.createElement("tr");
                 tr.setAttribute("data-job-id", row.id);
 
+                // Parse date as UTC and display as local time string
+                let dateObj = row.date ? new Date(row.date + "Z") : null;
+                let dateStr = dateObj ? dateObj.toLocaleString() : "";
+
                 tr.innerHTML = `
       <td class="checkbox-cell" style="cursor:pointer;">
         <input type="checkbox" class="job-checkbox" value="${row.id}">
@@ -477,7 +536,7 @@
         </span>
       </td>
       <td><a href="/job/${row.id}">Logs</a> <a href="${row.plot_link}">Plots</a></td>
-      <td>${new Date(row.date).toLocaleString()}</td>
+      <td>${dateStr}</td>
     `;
                 tbody.appendChild(tr);
             });
@@ -609,6 +668,8 @@
         fetchTrays();
         populateFilterSelects();
         updateRunnerStatus();
+
+
     </script>
 </body>
 

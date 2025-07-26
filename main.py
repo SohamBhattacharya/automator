@@ -1,9 +1,10 @@
 from fastapi import FastAPI, Query, Body, HTTPException
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
 from models import SessionLocal, Run, engine, Base, Tray
+import datetime
 
 
 app = FastAPI()
@@ -172,9 +173,15 @@ async def get_status(
         params["type"] = type
     if date_from:
         filters.append("date >= :date_from")
+        date_from = datetime.datetime.strptime(date_from, "%Y-%m-%dT%H:%M").astimezone(
+            tz=datetime.timezone.utc
+        )
         params["date_from"] = date_from
     if date_to:
         filters.append("date <= :date_to")
+        date_to = datetime.datetime.strptime(date_to, "%Y-%m-%dT%H:%M").astimezone(
+            tz=datetime.timezone.utc
+        )
         params["date_to"] = date_to
 
     where_clause = f"WHERE {' AND '.join(filters)}" if filters else ""
@@ -217,7 +224,9 @@ async def job_info(job_id: str):
         if not run:
             return HTMLResponse("<h1>Job not found</h1>", status_code=404)
 
-        # HTML for togglable logs
+        # Format date as ISO string with 'Z' to indicate UTC
+        date_str = run.date.isoformat() + "Z" if run.date else ""
+
         return HTMLResponse(f"""
         <!DOCTYPE html>
         <html>
@@ -238,16 +247,31 @@ async def job_info(job_id: str):
                         el.style.display = "none";
                     }}
                 }}
+                function showLocalDate() {{
+                    var el = document.getElementById("job-date");
+                    if (el && el.dataset.utc) {{
+                        var d = new Date(el.dataset.utc);
+                        el.textContent = d.toLocaleString();
+                    }}
+                }}
+                document.addEventListener("DOMContentLoaded", showLocalDate);
             </script>
         </head>
         <body>
+            <div class="navbar">
+                <span class="nav-title"><a href="/" style="color:inherit;text-decoration:none;">DAQ Automator</a></span>
+                <span>
+                    <a href="/register_tray_page" style="color:#ffe066; text-decoration:underline; margin-right:1.5em;">Register Tray</a>
+                    <a href="/display_trays_page" style="color:#ffe066; text-decoration:underline; margin-right:1.5em;">Display Trays</a>
+                </span>
+            </div>
             <p><a href="/">← Back to status</a></p>
             <h1>Job {run.id}</h1>
             <p><strong>Tray:</strong> {run.Tray}</p>
             <p><strong>RU:</strong> {run.RU}</p>
             <p><strong>Type:</strong> {run.run_type}</p>
             <p><strong>Run Number:</strong> {run.run_number if run.run_number is not None else "-"}</p>
-            <p><strong>Date:</strong> {run.date}</p>
+            <p><strong>Date:</strong> <span id="job-date" data-utc="{date_str}"></span></p>
             <p><strong>Status:</strong> {run.status}</p>
             <h2>Logs</h2>
             <div>
@@ -282,12 +306,14 @@ async def job_info(job_id: str):
         """)
 
 
+run_types = ["dm_check", "calibrate", "lyso", "tp", "disc", "iv", "tec"]
+
+
 @app.get("/latest_runs_by_tray")
 async def latest_runs_by_tray(tray: str):
-    types = ["lyso", "tp", "disc", "iv", "tec"]
     result = {}
     async with SessionLocal() as session:
-        for t in types:
+        for t in run_types:
             row = await session.execute(
                 text(
                     "SELECT id, run_number FROM runs WHERE Tray = :tray AND run_type = :type ORDER BY date DESC LIMIT 1"
@@ -336,6 +362,7 @@ with open("/home/cmsdaq/DAQ/automator/frontend/register_tray.html", "r") as f:
 with open("/home/cmsdaq/DAQ/automator/frontend/display_trays.html", "r") as f:
     HTML_PAGE_display_trays = f.read()
 
+
 @app.get("/", response_class=HTMLResponse)
 async def status_page():
     return HTML_PAGE
@@ -344,6 +371,7 @@ async def status_page():
 @app.get("/register_tray_page", response_class=HTMLResponse)
 async def register_tray_page():
     return HTML_PAGE_register_tray
+
 
 @app.get("/display_trays_page", response_class=HTMLResponse)
 async def display_trays_page():
