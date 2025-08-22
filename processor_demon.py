@@ -10,7 +10,9 @@ DATABASE_URL = f"sqlite:///{db_path}"
 engine = create_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
-MTDDAQ_PATH = "/home/cmsdaq/DAQ/mtd_daq/"
+#MTDDAQ_PATH = "/home/cmsdaq/DAQ/mtd_daq/"
+BTLUTILS_PATH = "/home/cptlab3/btl-production/btl-utils/"
+MTDDAQ_PATH = "/home/cptlab3/btl-production/mtd_daq/"
 
 plotters = {
     "dm_check": "tofhir_dm_position_plot.py",
@@ -44,23 +46,32 @@ def process_run(run_id: Run):
             list(filter(lambda k: ".venv" not in k, env["PATH"].split(":")))
         )
         start = time.time()
-
+        
+        extra_cmd = f"{BTLUTILS_PATH}/scripts/CIT/refresh_cptlab_share.sh results/QAQC_tray/runs && "
+        
+        label = f"\"{run.Tray} RU{run.RU} [run {run.run_number}]\""
+        
         if run.run_type == "lyso":
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}; tofhir_peaks_correlate.py {run.run_number}"
+            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}; tofhir_peaks_correlate.py {run.run_number}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
+            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number} {label}"
         elif run.run_type == "tp":
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}"
-        elif "calibrate" in run.run_type:
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
+            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number} {label}"
+        elif run.run_type == "calibrate":
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} {plotters[run.run_type]} {run.run_number} {label}"
         elif run.run_type == "dm_check":
             reco_command = "; ".join(
                 [
-                    f"tofhir_reco.py {_run_number}"
+                    f"{extra_cmd} tofhir_reco.py {_run_number}"
                     for _run_number in range(run.run_number, run.run_number + 12)
                 ]
             )
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {plotters[run.run_type]} {run.run_number} {run.run_number + 11}"
+            
+            label = f"\"{run.Tray} RU{run.RU} [runs {run.run_number}-{run.run_number+11}]\""
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {extra_cmd} {plotters[run.run_type]} {run.run_number} {run.run_number + 11} {label}"
         else:
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} {plotters[run.run_type]} {run.run_number} {label}"
 
         proc = subprocess.Popen(
             command,
@@ -90,19 +101,17 @@ def process_run(run_id: Run):
         link = "#"
         if proc.returncode == 0:
             if run.run_type in ["lyso", "tp"]:
-                link = f"http://pc-mtd-tray/tray_qaqc/tofhir/plots_run_{run.run_number}"
+                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir/plots_run_{run.run_number}"
             elif run.run_type == "disc":
-                link = f"http://pc-mtd-tray/tray_qaqc/disc_scan/run_{run.run_number}"
+                link = f"http://192.168.0.171:5558/tray_qaqc/disc_scan/run_{run.run_number}"
             elif run.run_type == "iv":
-                link = f"http://pc-mtd-tray/tray_qaqc/iv_scan/run_{run.run_number}"
-            elif "calibrate" in run.run_type:
-                link = (
-                    f"http://pc-mtd-tray/tray_qaqc/tofhir_calibs/run_{run.run_number}"
-                )
+                link = f"http://192.168.0.171:5558/tray_qaqc/iv_scan/run_{run.run_number}"
+            elif run.run_type == "calibrate":
+                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir_calibs/run_{run.run_number}"
             elif run.run_type == "tec":
-                link = f"http://pc-mtd-tray/tray_qaqc/temps/run_{run.run_number}"
+                link = f"http://192.168.0.171:5558/tray_qaqc/temps/run_{run.run_number}"
             elif run.run_type == "dm_check":
-                link = f"http://pc-mtd-tray/tray_qaqc/tofhir/plots_dmPosition_runs_{run.run_number}_{run.run_number + 11}"
+                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir/plots_dmPosition_runs_{run.run_number}_{run.run_number + 11}"
         print(link)
 
         run.plot_link = link
