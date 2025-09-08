@@ -43,7 +43,7 @@ async def process_run(run_id: Run):
         
         extra_cmd = f"{BTLUTILS_PATH}/scripts/CIT/refresh_cptlab_share.sh results/QAQC_tray/runs && "
         
-        label = f"\"{run.Tray} RU{run.RU}\""
+        label = f"\"{run.Tray} RU{run.RU} [run {run.run_number}]\""
         
         if run.run_type == "lyso":
             #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}; tofhir_peaks_correlate.py {run.run_number}"
@@ -61,6 +61,8 @@ async def process_run(run_id: Run):
                     for _run_number in range(run.run_number, run.run_number + 12)
                 ]
             )
+            
+            label = f"\"{run.Tray} RU{run.RU} [runs {run.run_number}-{run.run_number+11}]\""
             command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {extra_cmd} {plotters[run.run_type]} {run.run_number} {run.run_number + 11} {label}"
         else:
             command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} {plotters[run.run_type]} {run.run_number} {label}"
