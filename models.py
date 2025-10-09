@@ -1,11 +1,10 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, text, DateTime, Boolean, Text
 
-DATABASE_URL = "sqlite+aiosqlite:////home/cmsdaq/DAQ/automator/runs.db"
+db_path = "/home/cmsdaq/DAQ/automator/runs.db"
+
 Base = declarative_base()
-engine = create_async_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
 
 # -----------------------------
 # DB Model
@@ -24,6 +23,7 @@ class Run(Base):
     plot_link = Column(String, default="#")
     serenity_stdout = Column(Text, default="")  # new
     serenity_stderr = Column(Text, default="")  # new
+
 
 class Tray(Base):
     __tablename__ = "trays"

@@ -3,9 +3,19 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
-from models import SessionLocal, Run, engine, Base, Tray
+from models import Run, Base, Tray, db_path
 import datetime
 
+
+### DB Connection
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = f"sqlite+aiosqlite:///{db_path}"
+engine = create_async_engine(DATABASE_URL, echo=False)
+SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+
+### FastAPI
 
 app = FastAPI()
 app.add_middleware(
@@ -306,7 +316,16 @@ async def job_info(job_id: str):
         """)
 
 
-run_types = ["dm_check", "calibrate", "lyso", "tp", "disc", "iv", "tec"]
+run_types = [
+    "dm_check",
+    "calibrate_qdc",
+    "calibrate_tdc",
+    "lyso",
+    "tp",
+    "disc",
+    "iv",
+    "tec",
+]
 
 
 @app.get("/latest_runs_by_tray")

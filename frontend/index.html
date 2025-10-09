@@ -119,7 +119,8 @@
                 <tr>
                     <th>Select Tray</th>
                     <th>dm_check</th>
-                    <th>calibrate</th>
+                    <th>calibrate_qdc</th>
+                    <th>calibrate_tdc</th>
                     <th>lyso</th>
                     <th>tp</th>
                     <th>disc</th>
@@ -133,7 +134,8 @@
                         <select id="traySelect"></select>
                     </td>
                     <td id="dm_check_run"><a href="#">-</a></td>
-                    <td id="calibrate_run"><a href="#">-</a></td>
+                    <td id="calibrate_qdc_run"><a href="#">-</a></td>
+                    <td id="calibrate_tdc_run"><a href="#">-</a></td>
                     <td id="lyso_run"><a href="#">-</a></td>
                     <td id="tp_run"><a href="#">-</a></td>
                     <td id="disc_run"><a href="#">-</a></td>
@@ -164,7 +166,8 @@
             <select id="filterType">
                 <option value="">All</option>
                 <option value="dm_check">dm_check</option>
-                <option value="calibrate">calibrate</option>
+                <option value="calibrate_qdc">calibrate_qdc</option>
+                <option value="calibrate_tdc">calibrate_tdc</option>
                 <option value="lyso">lyso</option>
                 <option value="tp">tp</option>
                 <option value="disc">disc</option>
@@ -209,7 +212,7 @@
     <div class="pagination" id="pagination"></div>
     <script>
         let currentPage = 1;
-        const perPage = 30;
+        const perPage = 200;
         let sortBy = "date";
         let sortDir = "desc";
 
@@ -269,7 +272,8 @@
             }
 
             setLink("dm_check", "dm_check_run");
-            setLink("calibrate", "calibrate_run");
+            setLink("calibrate_qdc", "calibrate_qdc_run");
+            setLink("calibrate_tdc", "calibrate_tdc_run");
             setLink("lyso", "lyso_run");
             setLink("tp", "tp_run");
             setLink("disc", "disc_run");
@@ -357,8 +361,8 @@
                 ruSelect.appendChild(opt);
             });
 
-            var from_date= new Date();
-            from_date.setDate(from_date.getDate() - 5);
+            var from_date= new Date(2025, 0, 1);
+            //from_date.setDate(from_date.getDate() - 5);
             document.getElementById("filterDateFrom").value = from_date.toISOString().split("T")[0];
             document.getElementById("filterDateTo").value = new Date().toISOString().split("T")[0];
         }
