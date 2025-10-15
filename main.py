@@ -352,14 +352,14 @@ async def set_jobs_queued(ids: list[int] = Body(...)):
         await session.commit()
     return {"updated": ids}
 
-
-with open("/home/cmsdaq/DAQ/automator/frontend/index.html", "r") as f:
+automator_path="/home/cptlab3/btl-production/automator"
+with open(f"{automator_path}/frontend/index.html", "r") as f:
     HTML_PAGE = f.read()
 
-with open("/home/cmsdaq/DAQ/automator/frontend/register_tray.html", "r") as f:
+with open(f"{automator_path}/frontend/register_tray.html", "r") as f:
     HTML_PAGE_register_tray = f.read()
 
-with open("/home/cmsdaq/DAQ/automator/frontend/display_trays.html", "r") as f:
+with open(f"{automator_path}/frontend/display_trays.html", "r") as f:
     HTML_PAGE_display_trays = f.read()
 
 
@@ -410,5 +410,6 @@ if __name__ == "__main__":
     # uvicorn_access.disabled = True
 
     uvicorn.run("main:app", host="0.0.0.0", port=5558, reload=False)
+    #uvicorn.run("main:app", host="127.0.0.1", port=5558, reload=False)
     # FIXME
     # uvicorn.run("main:app", host="0.0.0.0", port=5558, reload=True)

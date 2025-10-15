@@ -2,7 +2,9 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker, declarative_base
 from sqlalchemy import Column, Integer, String, text, DateTime, Boolean, Text
 
-DATABASE_URL = "sqlite+aiosqlite:////home/cmsdaq/DAQ/automator/runs.db"
+automator_path = "/home/cptlab3/btl-production/automator"
+#DATABASE_URL = "sqlite+aiosqlite:////home/cmsdaq/DAQ/automator/runs.db"
+DATABASE_URL = f"sqlite+aiosqlite:///{automator_path}/runs.db"
 Base = declarative_base()
 engine = create_async_engine(DATABASE_URL, echo=False)
 SessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
