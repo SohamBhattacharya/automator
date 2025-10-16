@@ -51,7 +51,7 @@ def process_run(run_id: Run, lyso_peaks_correlate=False):
                 command = f"{command}; tofhir_peaks_correlate.py {run.run_number}"
         elif run.run_type == "tp":
             command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
-        elif run.run_type == "calibrate":
+        elif "calibrate" in run.run_type:
             command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} {plotters[run.run_type]} {run.run_number} {label}"
         elif run.run_type == "dm_check":
             reco_command = "; ".join(
