@@ -1,0 +1,9 @@
+automator_path: /home/cptlab3/btl-production/automator/
+db_path: /home/cptlab3/btl-production/automator/runs.db
+mtd_daq_path: /home/cptlab3/btl-production/mtd_daq/
+
+qaqc_url: http://192.168.0.171:5558/tray_qaqc
+
+pre_cmd: "/home/cptlab3/btl-production/btl-utils/scripts/CIT/refresh_cptlab_share.sh results/QAQC_tray/runs && "
+
+lyso_peaks_correlate: false

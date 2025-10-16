@@ -1,0 +1,8 @@
+db_path: /home/cmsdaq/DAQ/automator/
+mtd_daq_path: /home/cmsdaq/DAQ/mtd_daq/
+
+qaqc_url: http://pc-mtd-tray/tray_qaqc
+
+pre_cmd: ""
+
+lyso_peaks_correlate: true
