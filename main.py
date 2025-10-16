@@ -3,13 +3,30 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import text
-from models import Run, Base, Tray, db_path
+from models import Run, Base, Tray
+import argparse
 import datetime
+import uvicorn
 
+from ruamel.yaml import YAML
+yaml = YAML()
 
 ### DB Connection
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-b","--bac", required = True, type=str, help="BAC", choices = ["MIB", "CIT", "PKU", "UVA", "CERN"])
+args = parser.parse_args()
+
+bac_info_yaml = f"cfg/{args.bac}.yaml"
+with open(bac_info_yaml, "r") as fopen :
+    
+    d_bac_info = yaml.load(fopen.read())
+
+automator_path = d_bac_info["automator_path"]
+db_path = d_bac_info["db_path"]
 
 DATABASE_URL = f"sqlite+aiosqlite:///{db_path}"
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -371,7 +388,6 @@ async def set_jobs_queued(ids: list[int] = Body(...)):
         await session.commit()
     return {"updated": ids}
 
-automator_path="/home/cptlab3/btl-production/automator"
 with open(f"{automator_path}/frontend/index.html", "r") as f:
     HTML_PAGE = f.read()
 
@@ -419,7 +435,7 @@ async def api_trays():
 
 
 if __name__ == "__main__":
-    import uvicorn
+    #import uvicorn
     # import logging
 
     # # ....CODE....

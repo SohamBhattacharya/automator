@@ -1,18 +1,14 @@
+import argparse
 import os
 import subprocess
-from models import Run, db_path
+from models import Run
 from sqlalchemy import select
 import time
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-DATABASE_URL = f"sqlite:///{db_path}"
-engine = create_engine(DATABASE_URL, echo=False)
-SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
-
-#MTDDAQ_PATH = "/home/cmsdaq/DAQ/mtd_daq/"
-BTLUTILS_PATH = "/home/cptlab3/btl-production/btl-utils/"
-MTDDAQ_PATH = "/home/cptlab3/btl-production/mtd_daq/"
+from ruamel.yaml import YAML
+yaml = YAML()
 
 plotters = {
     "dm_check": "tofhir_dm_position_plot.py",
@@ -26,7 +22,7 @@ plotters = {
 }
 
 
-def process_run(run_id: Run):
+def process_run(run_id: Run, lyso_peaks_correlate=False):
     with SessionLocal() as session:
         run = session.get(Run, run_id)
         if not run:
@@ -47,31 +43,28 @@ def process_run(run_id: Run):
         )
         start = time.time()
         
-        extra_cmd = f"{BTLUTILS_PATH}/scripts/CIT/refresh_cptlab_share.sh results/QAQC_tray/runs && "
-        
         label = f"\"{run.Tray} RU{run.RU} [run {run.run_number}]\""
         
         if run.run_type == "lyso":
-            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number}; tofhir_peaks_correlate.py {run.run_number}"
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
-            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number} {label}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
+            if lyso_peaks_correlate:
+                command = f"{command}; tofhir_peaks_correlate.py {run.run_number}"
         elif run.run_type == "tp":
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
-            #command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {plotters[run.run_type]} {run.run_number} {label}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} tofhir_reco.py {run.run_number}; {plotters[run.run_type]} {run.run_number} {label}"
         elif run.run_type == "calibrate":
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} {plotters[run.run_type]} {run.run_number} {label}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} {plotters[run.run_type]} {run.run_number} {label}"
         elif run.run_type == "dm_check":
             reco_command = "; ".join(
                 [
-                    f"{extra_cmd} tofhir_reco.py {_run_number}"
+                    f"{PRE_CMD} tofhir_reco.py {_run_number}"
                     for _run_number in range(run.run_number, run.run_number + 12)
                 ]
             )
             
             label = f"\"{run.Tray} RU{run.RU} [runs {run.run_number}-{run.run_number+11}]\""
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {extra_cmd} {plotters[run.run_type]} {run.run_number} {run.run_number + 11} {label}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {reco_command} ; {PRE_CMD} {plotters[run.run_type]} {run.run_number} {run.run_number + 11} {label}"
         else:
-            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {extra_cmd} {plotters[run.run_type]} {run.run_number} {label}"
+            command = f"which python; cd {MTDDAQ_PATH}; . start.sh; {PRE_CMD} {plotters[run.run_type]} {run.run_number} {label}"
 
         proc = subprocess.Popen(
             command,
@@ -101,17 +94,17 @@ def process_run(run_id: Run):
         link = "#"
         if proc.returncode == 0:
             if run.run_type in ["lyso", "tp"]:
-                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir/plots_run_{run.run_number}"
+                link = f"{QAQC_URL}/tofhir/plots_run_{run.run_number}"
             elif run.run_type == "disc":
-                link = f"http://192.168.0.171:5558/tray_qaqc/disc_scan/run_{run.run_number}"
+                link = f"{QAQC_URL}/disc_scan/run_{run.run_number}"
             elif run.run_type == "iv":
-                link = f"http://192.168.0.171:5558/tray_qaqc/iv_scan/run_{run.run_number}"
-            elif run.run_type == "calibrate":
-                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir_calibs/run_{run.run_number}"
+                link = f"{QAQC_URL}/iv_scan/run_{run.run_number}"
+            elif "calibrate" in run.run_type:
+                link = f"{QAQC_URL}/tofhir_calibs/run_{run.run_number}"
             elif run.run_type == "tec":
-                link = f"http://192.168.0.171:5558/tray_qaqc/temps/run_{run.run_number}"
+                link = f"{QAQC_URL}/temps/run_{run.run_number}"
             elif run.run_type == "dm_check":
-                link = f"http://192.168.0.171:5558/tray_qaqc/tofhir/plots_dmPosition_runs_{run.run_number}_{run.run_number + 11}"
+                link = f"{QAQC_URL}/tofhir/plots_dmPosition_runs_{run.run_number}_{run.run_number + 11}"
         print(link)
 
         run.plot_link = link
@@ -122,6 +115,29 @@ def process_run(run_id: Run):
 
 
 def poll_db():
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-b","--bac", required = True, type=str, help="BAC", choices = ["MIB", "CIT", "PKU", "UVA", "CERN"])
+    args = parser.parse_args()
+    
+    bac_info_yaml = f"cfg/{args.bac}.yaml"
+    with open(bac_info_yaml, "r") as fopen :
+        
+        d_bac_info = yaml.load(fopen.read())
+    
+    global automator_path, db_path, DATABASE_URL, engine, SessionLocal, MTDDAQ_PATH, QAQC_URL, PRE_CMD
+    
+    db_path = d_bac_info["db_path"]
+    automator_path = d_bac_info["automator_path"]
+    DATABASE_URL = f"sqlite:///{db_path}"
+    engine = create_engine(DATABASE_URL, echo=False)
+    SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
+
+    MTDDAQ_PATH = d_bac_info["mtd_daq_path"]
+    QAQC_URL = d_bac_info["qaqc_url"]
+    
+    PRE_CMD = d_bac_info["pre_cmd"]
+    
     while True:
         with SessionLocal() as session:
             result = session.execute(
@@ -134,7 +150,10 @@ def poll_db():
                 f"[{time.strftime('%H:%M:%S')}] Found {len(runs)} run(s) to process..."
             )
             for run in runs:
-                process_run(run.id)
+                process_run(
+                    run_id=run.id,
+                    lyso_peaks_correlate=d_bac_info["lyso_peaks_correlate"]
+                )
             else:
                 print(f"[{time.strftime('%H:%M:%S')}] No queued runs.")
         time.sleep(2)

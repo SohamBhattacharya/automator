@@ -1,9 +1,8 @@
 from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, text, DateTime, Boolean, Text
 
-automator_path = "/home/cptlab3/btl-production/automator"
-#DATABASE_URL = "sqlite+aiosqlite:////home/cmsdaq/DAQ/automator/runs.db"
-DATABASE_URL = f"sqlite+aiosqlite:///{automator_path}/runs.db"
+#db_path = "/home/cptlab3/btl-production/automator"
+#DATABASE_URL = f"sqlite+aiosqlite:///{db_path}/runs.db"
 Base = declarative_base()
 
 
